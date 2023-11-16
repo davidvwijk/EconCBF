@@ -1,3 +1,21 @@
+"""
+--------------------------------------------------------------------------
+
+van Wijk, David
+Texas A&M University
+Aerospace Engineering
+
+Codebase for Control Barrier Functions applied to problems in Finance and Economics.
+
+---------------------------------------------------------------------------
+
+Problem solution to Optimal Advertising problem introduced in 
+"Optimal Control Theory with Applications in Economics" (Weber 2014)
+http://econspace.net/teaching/MGT-626/MGT-626-Notes-2014.pdf
+
+Exercise 3.8
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
@@ -70,11 +88,13 @@ def h_x(x, x_max):
 
 
 def primaryControl(x, v, t, k, r, u_max):
+    # Optimal control solution
     u = ((k * v * (1 - x)) / (np.exp(-r * t))) ** (k / (1 - k))
     return min(u, u_max)
 
 
 def propFun(x_full, t, u, r, g, b):
+    # Propagate the dynamics and the costate
     x, v = x_full
     dx = np.zeros_like(x_full)
     dx[0] = (1 - x) * u - b * x
