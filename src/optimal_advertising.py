@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 import quadprog
 import seaborn as sns
+import time
 
 # Constants
 k = 0.5
@@ -46,9 +47,12 @@ u_des_store = np.zeros(numPts)
 # Initial conditions
 x_0 = np.array([0.02, 1])  # x, v
 x_curr = x_0
+
+# Storing values
 x_store[:, 0] = x_0
 u_store[0] = 0
 u_des_store[0] = 0
+solver_times = []
 
 
 def barrier_constraint(x, x_max, u, b):
@@ -75,8 +79,11 @@ def asif_QP(x, x_max, u_des, b, u_max):
     h = np.vstack([h.reshape((-1, 1)), np.array([h_constraint, 0]).reshape((-1, 1))])
     d = h.reshape((len(h),))
 
+    tic = time.perf_counter()
     u_act = quadprog.solve_qp(M, q, G.T, d, 0)[0]
-    return u_act[0]
+    toc = time.perf_counter()
+    solver_dt = toc - tic
+    return u_act[0], solver_dt
 
 
 def alpha(x):
@@ -109,7 +116,8 @@ for i in range(1, numPts):
     u = primaryControl(x_curr[0], x_curr[1], t, k, r, u_max)
 
     # Check if control is safe
-    u_act = asif_QP(x_curr[0], x_max, u, b, u_max)
+    u_act, sovler_dt = asif_QP(x_curr[0], x_max, u, b, u_max)
+    solver_times.append(sovler_dt)
     if abs(u_act - u) > 0.001:
         intervened[i] = True
         # print("Intervened")
@@ -123,12 +131,16 @@ for i in range(1, numPts):
     x_store[:, i] = x_curr
     u_store[i] = u
 
+print(f"Average solver time: {1000*np.average(solver_times):0.4f} ms")
+print(f"Maximum single solver time: {1000*np.max(solver_times):0.4f} ms")
+
 # Plotting
-fontsz = 20
-legend_sz = 15
-x_line_opts = {"linewidth": 2, "color": "b"}
-u_line_opts = {"linewidth": 2, "color": "g", "label": "$\mathbf{u}_{act}$"}
-udes_line_opts = {"linewidth": 2, "color": "r", "label": "$\mathbf{u}^{*}$"}
+fontsz = 24
+legend_sz = 24
+ticks_sz = 20
+x_line_opts = {"linewidth": 3, "color": "b"}
+u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
+udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
 
 plt.rcParams.update(
     {
@@ -137,15 +149,59 @@ plt.rcParams.update(
     }
 )
 
-plt.figure(figsize=(10, 8))
+########## Subplot ##########
+
+# plt.figure(figsize=(10, 8))
+
+# # State plot
+# ax = plt.subplot(2, 1, 1)
+# ax.grid(True)
+# plt.plot(tspan, x_store[0], **x_line_opts)
+# plt.axhline(x_max, color="k", linestyle="--")
+# plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 3)
+# plt.xlabel("Time", fontsize=fontsz)
+# ax.set_xlim([0, tspan[-1]])
+# ax.set_ylim([0, 1])
+# y1_fill = np.ones(numPts) * 0
+# y2_fill = np.ones(numPts) * x_max
+# ax.fill_between(
+#     tspan,
+#     y1_fill,
+#     y2_fill,
+#     color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
+# )
+# ax.fill_between(
+#     tspan,
+#     y2_fill,
+#     np.ones(numPts),
+#     color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
+# )
+
+# # Control plot
+# ax = plt.subplot(2, 1, 2)
+# ax.grid(True)
+# plt.plot(tspan, u_des_store, **udes_line_opts)
+# plt.plot(tspan, u_store, **u_line_opts)
+# plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 3)
+# plt.xlabel("Time", fontsize=fontsz)
+# ax.set_xlim([0, tspan[-1]])
+
+# ax.legend(fontsize=legend_sz, loc="upper left")
+# plt.tight_layout()
+# plt.show()
+
+########## Individual Plots ##########
 
 # State plot
-ax = plt.subplot(2, 1, 1)
+axf = plt.figure(figsize=(10, 7), dpi=100)
+ax = axf.add_subplot(111)
 ax.grid(True)
 plt.plot(tspan, x_store[0], **x_line_opts)
 plt.axhline(x_max, color="k", linestyle="--")
-plt.ylabel("$\mathbf{x}$", fontsize=fontsz)
+plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
 plt.xlabel("Time", fontsize=fontsz)
+plt.xticks(fontsize=ticks_sz)
+plt.yticks(fontsize=ticks_sz)
 ax.set_xlim([0, tspan[-1]])
 ax.set_ylim([0, 1])
 y1_fill = np.ones(numPts) * 0
@@ -162,15 +218,20 @@ ax.fill_between(
     np.ones(numPts),
     color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
 )
+plt.tight_layout()
 
 # Control plot
-ax = plt.subplot(2, 1, 2)
+axf = plt.figure(figsize=(10, 7), dpi=100)
+ax = axf.add_subplot(111)
 ax.grid(True)
 plt.plot(tspan, u_des_store, **udes_line_opts)
 plt.plot(tspan, u_store, **u_line_opts)
-plt.ylabel("$\mathbf{u}$", fontsize=fontsz)
+plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
 plt.xlabel("Time", fontsize=fontsz)
+plt.xticks(fontsize=ticks_sz)
+plt.yticks(fontsize=ticks_sz)
 ax.set_xlim([0, tspan[-1]])
+ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
 
 ax.legend(fontsize=legend_sz, loc="upper left")
 plt.tight_layout()
