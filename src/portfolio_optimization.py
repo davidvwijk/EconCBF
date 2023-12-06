@@ -9,11 +9,7 @@ Codebase for Control Barrier Functions applied to problems in Finance and Econom
 
 ---------------------------------------------------------------------------
 
-Problem solution to Optimal Advertising problem introduced in 
-"Optimal Control Theory with Applications in Economics" (Weber 2014)
-http://econspace.net/teaching/MGT-626/MGT-626-Notes-2014.pdf
-
-Exercise 3.8
+[describe problem and give textbook]
 """
 
 import numpy as np
@@ -32,32 +28,49 @@ class StochasticCBF:
 
         """
         return np.linalg.norm(u - u_des)
+        # return u
 
-    def h_x(self, x, x_max):
-        return (x**2) - x_max**2
+    def h_x(self, x, x_min):
+        return (x**2) - x_min**2
 
-    def barrier_constraint(self, u, x, x_max, mu, r, sigma):
+    def barrier_constraint(self, u, x, x_min, mu, r, sigma):
         return (
             2 * x * (r * x + (mu - r) * u)
             + (sigma**2) * (u**2)
-            + self.alpha(self.h_x(x, x_max))
-        )
+            + self.alpha(self.h_x(x, x_min))
+        ) / 1000
 
     def alpha(self, x):
-        return 10 * x
+        return 500 * x
 
-    def asif(self, u, x_curr, x_max, mu, r, sigma):
+    def asif_NLP(self, u, x_curr, u_max, x_min, mu, r, sigma):
         # Check if control is safe
         constraint = [
             {
                 "type": "ineq",
                 "fun": self.barrier_constraint,
-                "args": (u, x_curr, x_max, mu, r, sigma),
+                "args": (x_curr, x_min, mu, r, sigma),
             }
         ]
         constraints = tuple(constraint)
-        u_max = x_curr
-        bnds = (0, u_max)
+        bnds = ((0.0, u_max),)
+
+        # u_0 = u / 3
+        u_0 = 0
+        tic = time.perf_counter()
+        result = minimize(
+            self.obj_fun,
+            u_0,
+            constraints=constraints,
+            method="SLSQP",
+            bounds=bnds,
+            args=u,
+            tol=1e-5,
+        )
+        toc = time.perf_counter()
+        solver_dt = toc - tic
+        # print(result.message)
+        return result.x[0], solver_dt
 
 
 class PortfolioOptimization(StochasticCBF):
@@ -69,18 +82,6 @@ class PortfolioOptimization(StochasticCBF):
         u = l / (g * sigma) * np.exp(-r * (T - t))
         return u
 
-    # def propFun(self, x_full, t, u, r, mu, sigma):  # TODO DELETE THIS LATER
-    #     """
-    #     Propagate dynamics.
-
-    #     """
-    #     x = x_full
-    #     dx = np.zeros_like(x_full)
-    #     dx[0] = (u * (mu - r) + r * x) + u * sigma * (
-    #         self.rng.standard_normal(size=(1))
-    #     )
-    #     return dx
-
     def f_fun(self, x, t, u, mu, r):
         return u * (mu - r) + r * x
 
@@ -90,21 +91,20 @@ class PortfolioOptimization(StochasticCBF):
     def runSimulation(self):
         # Constants
         r = 0.024
-        mu = 0.1
-        sigma = 0.14
-        g = 0.1
+        mu = 0.2
+        sigma = 0.15
+        g = 0.3
         l = (mu - r) / sigma
-        # u_max = 12
 
         self.seed = np.random.randint(0, 99999)
-        # self.seed = 97072  # Reproducibility
+        # self.seed = 45396  # Reproducibility
         self.rng = np.random.default_rng(self.seed)
 
         # State constraint
-        x_max = 190
+        x_min = 490
 
         # Data statistics
-        numPts = 500
+        numPts = 300
         timestep = 0.01
         tspan = np.arange(0, numPts * timestep, timestep)
 
@@ -114,7 +114,7 @@ class PortfolioOptimization(StochasticCBF):
         u_des_store = np.zeros(numPts)
 
         # Initial conditions
-        x_0 = np.array([350])  # x
+        x_0 = np.array([500])  # x
         x_curr = x_0
 
         # Storing values
@@ -134,20 +134,23 @@ class PortfolioOptimization(StochasticCBF):
             # Generate control desired
             t = tspan[i - 1]
             u = self.primaryControl(l, g, sigma, r, max(tspan), t)
-            # u = 1
+            # u = 300
+            # if i == 100:
+            #     x_min = 530
 
-            u_act, sovler_dt = self.asif_QP(x_curr[0], x_max, u, b, u_max)
+            # Apply Stochastic CBF
+            u_max = x_curr
+            u_act, sovler_dt = self.asif_NLP(u, x_curr, u_max, x_min, mu, r, sigma)
             solver_times.append(sovler_dt)
             if abs(u_act - u) > 0.001:
                 intervened[i] = True
-                # print("Intervened")
             u_des_store[i] = u
             u = u_act
 
             args1 = (u, mu, r)
             args2 = (u, sigma)
 
-            # Apply control and propagate state
+            # Apply control and propagate state using the stochastic diff eq.
             x_curr = sdeint.itoint(
                 close(self.f_fun, *args1),
                 close(self.g_fun, *args2),
@@ -155,25 +158,22 @@ class PortfolioOptimization(StochasticCBF):
                 [tspan[i - 1], tspan[i]],
                 generator=self.rng,
             )[-1]
-
-            # # Apply control and propagate state
-            # x_curr = odeint(
-            #     self.propFun, x_curr, [tspan[i - 1], tspan[i]], args=(u, r, mu, sigma)
-            # )[-1]
+            print(x_curr)
+            print(self.barrier_constraint(u, x_curr, x_min, mu, r, sigma))
 
             # # Store data
             x_store[:, i] = x_curr
             u_store[i] = u
 
         print("Seed:", self.seed)
-        # print(f"Average solver time: {1000*np.average(solver_times):0.4f} ms")
-        # print(f"Maximum single solver time: {1000*np.max(solver_times):0.4f} ms")
+        print(f"Average solver time: {1000*np.average(solver_times):0.4f} ms")
+        print(f"Maximum single solver time: {1000*np.max(solver_times):0.4f} ms")
 
-        return tspan, x_store, numPts, u_store
+        return tspan, x_store, numPts, u_des_store, u_store
 
 
 class Plotter:
-    def individualPlot(self, tspan, x_store, numPts, u_store):
+    def individualPlot(self, tspan, x_store, numPts, u_des_store, u_store):
         # Plotting
         fontsz = 24
         legend_sz = 24
@@ -194,13 +194,13 @@ class Plotter:
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, x_store[0], **x_line_opts)
-        # plt.axhline(x_max, color="k", linestyle="--")
-        # plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
+        # plt.axhline(x_min, color="k", linestyle="--")
+        plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
         # plt.ylabel("Installed Customer Base", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
-        ax.set_xlim([0, tspan[-1]])
+        ax.set_xlim([0, tspan[-1] * 1.004])
 
         plt.tight_layout()
 
@@ -208,14 +208,15 @@ class Plotter:
         axf = plt.figure(figsize=(10, 7), dpi=100)
         ax = axf.add_subplot(111)
         ax.grid(True)
+        plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        # plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
+        plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
         # plt.ylabel("Advertising Activity", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
-        ax.set_xlim([0, tspan[-1]])
-        # ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
+        ax.set_xlim([0, tspan[-1] * 1.004])
+        ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
 
         ax.legend(fontsize=legend_sz, loc="upper left")
         plt.tight_layout()
@@ -228,8 +229,9 @@ if __name__ == "__main__":
         tspan,
         x_store,
         numPts,
+        u_des_store,
         u_store,
     ) = env.runSimulation()
     plotter_env = Plotter()
-    plotter_env.individualPlot(tspan, x_store, numPts, u_store)
-    # plotter_env.subPlots(tspan, x_store, numPts, x_max, u_des_store, u_store)
+    plotter_env.individualPlot(tspan, x_store, numPts, u_des_store, u_store)
+    # plotter_env.subPlots(tspan, x_store, numPts, x_min, u_des_store, u_store)
