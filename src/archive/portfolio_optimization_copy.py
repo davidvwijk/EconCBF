@@ -36,12 +36,12 @@ class StochasticCBF:
     def barrier_constraint(self, u, x, x_min, mu, r, sigma):
         return (
             2 * x * (r * x + (mu - r) * u)
-            + (sigma * u) ** 2
+            + (sigma**2) * (u**2)
             + self.alpha(self.h_x(x, x_min))
-        )
+        ) / 1000
 
     def alpha(self, x):
-        return x / 10
+        return 50 * x
 
     def asif_NLP(self, u, x_curr, u_max, x_min, mu, r, sigma):
         # Check if control is safe
@@ -55,8 +55,8 @@ class StochasticCBF:
         constraints = tuple(constraint)
         bnds = ((0.0, u_max),)
 
-        u_0 = u / 3
-        # u_0 = 0
+        # u_0 = u / 3
+        u_0 = 0
         tic = time.perf_counter()
         result = minimize(
             self.obj_fun,
@@ -69,13 +69,8 @@ class StochasticCBF:
         )
         toc = time.perf_counter()
         solver_dt = toc - tic
-
-        u_act = result.x[0]
-        if not result.success:
-            print("Fail, x_curr:", x_curr)
-            # u_act = u_act / 3
-
-        return u_act, solver_dt
+        # print(result.message)
+        return result.x[0], solver_dt
 
 
 class PortfolioOptimization(StochasticCBF):
@@ -87,45 +82,34 @@ class PortfolioOptimization(StochasticCBF):
         u = l / (g * sigma) * np.exp(-r * (T - t))
         return u
 
-    def eulerMaruyamaInt(self, x_tkm, del_t, u, mu, r, sigma):
-        # Discrete integration via Euler–Maruyama method
-        x_tk = (
-            x_tkm
-            + self.f_fun(x_tkm, 0, u, mu, r) * del_t
-            + self.g_fun(0, 0, u, sigma)
-            * (self.rng.standard_normal(size=(1)) * np.sqrt(del_t))
-        )
-        return x_tk
-
     def f_fun(self, x, t, u, mu, r):
-        return u * (mu - r) + r * x
+        return x * (u * mu + (1 - u) * r)
 
     def g_fun(self, x, t, u, sigma):
-        return u * sigma
+        return x * u * sigma
 
     def runSimulation(self):
         # Constants
-        r = 0.02
+        r = 0.024
         mu = 0.07
         sigma = 0.15
-        g = 0.01
+        g = 0.3
         l = (mu - r) / sigma
 
         self.seed = np.random.randint(0, 99999)
-        # self.seed = 7267  # Reproducibility
+        self.seed = 30787  # Reproducibility
         self.rng = np.random.default_rng(self.seed)
 
         # State constraint
-        x_min = 480
+        x_min = 490
 
         # Data statistics
-        numPts = 400
-        timestep = 0.1
+        numPts = 300
+        timestep = 0.01
         tspan = np.arange(0, numPts * timestep, timestep)
 
         # Tracking variables
         x_store = np.zeros((2, numPts))
-        x_EM_store = np.zeros((1, numPts))
         u_store = np.zeros(numPts)
         u_des_store = np.zeros(numPts)
 
@@ -135,7 +119,6 @@ class PortfolioOptimization(StochasticCBF):
 
         # Storing values
         x_store[:, 0] = x_0
-        x_EM_store[:, 0] = x_0
         u_store[0] = 0
         u_des_store[0] = 0
         solver_times = []
@@ -150,25 +133,23 @@ class PortfolioOptimization(StochasticCBF):
         for i in range(1, numPts):
             # Generate control desired
             t = tspan[i - 1]
-            u = self.primaryControl(l, g, sigma, r, max(tspan), t)
-            # u = 0.6 * x_curr
+            # u = self.primaryControl(l, g, sigma, r, max(tspan), t)
+            u = 0.1
+            # if i == 100:
+            #     x_min = 530
 
-            if i == 50:
-                x_curr[0] = x_min + 3
             # x_min = x_curr * 0.94
-            # Apply Stochastic CBF
-            u_max = x_curr
-            u_act, sovler_dt = self.asif_NLP(u, x_curr, u_max, x_min, mu, r, sigma)
-            solver_times.append(sovler_dt)
-            if abs(u_act - u) > 0.001:
-                intervened[i] = True
-            u_des_store[i] = u
-            u = u_act
+            # # Apply Stochastic CBF
+            # u_max = x_curr
+            # u_act, sovler_dt = self.asif_NLP(u, x_curr, u_max, x_min, mu, r, sigma)
+            # solver_times.append(sovler_dt)
+            # if abs(u_act - u) > 0.001:
+            #     intervened[i] = True
+            # u_des_store[i] = u
+            # u = u_act
 
             args1 = (u, mu, r)
             args2 = (u, sigma)
-
-            x_EM_store[:, i] = self.eulerMaruyamaInt(x_curr, timestep, u, mu, r, sigma)
 
             # Apply control and propagate state using the stochastic diff eq.
             x_curr = sdeint.itoint(
@@ -178,26 +159,27 @@ class PortfolioOptimization(StochasticCBF):
                 [tspan[i - 1], tspan[i]],
                 generator=self.rng,
             )[-1]
+            # print(x_curr)
+            # print(self.barrier_constraint(u, x_curr, x_min, mu, r, sigma))
 
-            # Store data
+            # # Store data
             x_store[:, i] = x_curr
             u_store[i] = u
 
         print("Seed:", self.seed)
-        print(f"Average solver time: {1000*np.average(solver_times):0.4f} ms")
-        print(f"Maximum single solver time: {1000*np.max(solver_times):0.4f} ms")
+        # print(f"Average solver time: {1000*np.average(solver_times):0.4f} ms")
+        # print(f"Maximum single solver time: {1000*np.max(solver_times):0.4f} ms")
 
-        return tspan, x_store, x_EM_store, numPts, u_des_store, u_store
+        return tspan, x_store, numPts, u_des_store, u_store
 
 
 class Plotter:
-    def individualPlot(self, tspan, x_store, x_EM_store, numPts, u_des_store, u_store):
+    def individualPlot(self, tspan, x_store, numPts, u_des_store, u_store):
         # Plotting
         fontsz = 24
         legend_sz = 24
         ticks_sz = 20
         x_line_opts = {"linewidth": 3, "color": "b"}
-        x_line_opts2 = {"linewidth": 3, "color": "pink"}
         u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
         udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
 
@@ -213,7 +195,6 @@ class Plotter:
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, x_store[0], **x_line_opts)
-        # plt.plot(tspan, x_EM_store[0], **x_line_opts2)
         # plt.axhline(x_min, color="k", linestyle="--")
         plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
         # plt.ylabel("Installed Customer Base", fontsize=fontsz)
@@ -224,76 +205,22 @@ class Plotter:
 
         plt.tight_layout()
 
-        # Control plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
-        ax = axf.add_subplot(111)
-        ax.grid(True)
-        plt.plot(tspan, u_des_store, **udes_line_opts)
-        plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
-        # plt.ylabel("Advertising Activity", fontsize=fontsz)
-        plt.xlabel("Time", fontsize=fontsz)
-        plt.xticks(fontsize=ticks_sz)
-        plt.yticks(fontsize=ticks_sz)
-        ax.set_xlim([0, tspan[-1] * 1.004])
-        ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
+        # # Control plot
+        # axf = plt.figure(figsize=(10, 7), dpi=100)
+        # ax = axf.add_subplot(111)
+        # ax.grid(True)
+        # plt.plot(tspan, u_des_store, **udes_line_opts)
+        # plt.plot(tspan, u_store, **u_line_opts)
+        # plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
+        # # plt.ylabel("Advertising Activity", fontsize=fontsz)
+        # plt.xlabel("Time", fontsize=fontsz)
+        # plt.xticks(fontsize=ticks_sz)
+        # plt.yticks(fontsize=ticks_sz)
+        # ax.set_xlim([0, tspan[-1] * 1.004])
+        # ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
 
-        ax.legend(fontsize=legend_sz, loc="upper right")
-        plt.tight_layout()
-        plt.show()
-
-    def subPlots(self, tspan, x_store, numPts, u_des_store, u_store):
-        # Plotting
-        fontsz = 24
-        legend_sz = 24
-        x_line_opts = {"linewidth": 3, "color": "b"}
-        u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
-        udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
-
-        plt.rcParams.update(
-            {
-                "text.usetex": True,
-                "font.family": "serif",
-            }
-        )
-
-        plt.figure(figsize=(10, 8))
-
-        # State plot
-        ax = plt.subplot(2, 1, 1)
-        ax.grid(True)
-        plt.plot(tspan, x_store[0], **x_line_opts)
-        # plt.axhline(x_max, color="k", linestyle="--")
-        plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 3)
-        plt.xlabel("Time", fontsize=fontsz)
-        ax.set_xlim([0, tspan[-1]])
-        ax.set_ylim([0, 1])
-        # y1_fill = np.ones(numPts) * 0
-        # y2_fill = np.ones(numPts) * x_max
-        # ax.fill_between(
-        #     tspan,
-        #     y1_fill,
-        #     y2_fill,
-        #     color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
-        # )
-        # ax.fill_between(
-        #     tspan,
-        #     y2_fill,
-        #     np.ones(numPts),
-        #     color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
-        # )
-
-        # Control plot
-        ax = plt.subplot(2, 1, 2)
-        ax.grid(True)
-        plt.plot(tspan, u_des_store, **udes_line_opts)
-        plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 3)
-        plt.xlabel("Time", fontsize=fontsz)
-        ax.set_xlim([0, tspan[-1]])
-
-        ax.legend(fontsize=legend_sz, loc="upper left")
-        plt.tight_layout()
+        # ax.legend(fontsize=legend_sz, loc="upper left")
+        # plt.tight_layout()
         plt.show()
 
 
@@ -302,11 +229,10 @@ if __name__ == "__main__":
     (
         tspan,
         x_store,
-        x_EM_store,
         numPts,
         u_des_store,
         u_store,
     ) = env.runSimulation()
     plotter_env = Plotter()
-    plotter_env.individualPlot(tspan, x_store, x_EM_store, numPts, u_des_store, u_store)
-    # plotter_env.subPlots(tspan, x_store, numPts, u_des_store, u_store)
+    plotter_env.individualPlot(tspan, x_store, numPts, u_des_store, u_store)
+    # plotter_env.subPlots(tspan, x_store, numPts, x_min, u_des_store, u_store)
