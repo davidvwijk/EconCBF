@@ -9,7 +9,7 @@ Codebase for Control Barrier Functions applied to problems in Finance and Econom
 
 ---------------------------------------------------------------------------
 
-[describe problem and give textbook]
+[describe problem and give textbook] TODO
 """
 
 import numpy as np
@@ -254,8 +254,7 @@ class Plotter:
         plt.plot(tspan, x_store[0], **x_line_opts)
         # plt.plot(tspan, x_EM_store[0], **x_line_opts2)
         plt.axhline(x_max, color="k", linestyle="--")
-        plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
-        # plt.ylabel("Installed Customer Base", fontsize=fontsz)
+        plt.ylabel("Installed Customer Base", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -269,8 +268,7 @@ class Plotter:
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
-        # plt.ylabel("Advertising Activity", fontsize=fontsz)
+        plt.ylabel("Advertising Activity", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -301,8 +299,7 @@ class Plotter:
             plt.plot(tspan, MC_store[i], **x_line_opts)
 
         plt.axhline(x_max, color="k", linestyle="--")
-        # plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
-        # plt.ylabel("Installed Customer Base", fontsize=fontsz)
+        plt.ylabel("Installed Customer Base", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
