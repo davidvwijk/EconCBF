@@ -240,15 +240,28 @@ class Advertising(StochasticCBF):
             x_store[i] = x_curr[0]
             u_store[i] = u
 
+        avg_solver_t = 1000 * np.average(solver_times)  # in ms
+        max_solver_t = 1000 * np.max(solver_times)  # in ms
         if self.verbose:
             print("Seed:", self.seed)
-            # print(f"Average solver time: {1000*np.average(solver_times):0.4f} ms")
-            # print(f"Maximum single solver time: {1000*np.max(solver_times):0.4f} ms")
+            print(f"Average solver time: {avg_solver_t:0.4f} ms")
+            print(f"Maximum single solver time: {max_solver_t:0.4f} ms")
 
-        return tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
+        return (
+            tspan,
+            x_store,
+            x_EM_store,
+            numPts,
+            u_des_store,
+            u_store,
+            x_max,
+            [avg_solver_t, max_solver_t],
+        )
 
     def runMC(self, numMCPts, SCBF_flag):
         MC_store = []
+        # avg_MC_solver_t =
+        # max_MC_solver_t =
         with alive_bar(numMCPts) as bar:
             for _ in range(numMCPts):
                 (
@@ -259,6 +272,7 @@ class Advertising(StochasticCBF):
                     _,
                     _,
                     x_max,
+                    solver_t_array,
                 ) = self.runSimulation(verbose=False, SCBF_flag=SCBF_flag)
                 MC_store.append(x_store)
                 bar()
@@ -293,8 +307,24 @@ class Plotter:
         plt.plot(tspan, x_store, **x_line_opts)
         # plt.plot(tspan, x_EM_store[0], **x_line_opts2)
         plt.axhline(x_max, color="k", linestyle="--")
+        y1_fill = np.ones(len(tspan)) * 0
+        y2_fill = np.ones(len(tspan)) * x_max
+        ax.fill_between(
+            tspan,
+            y1_fill,
+            y2_fill,
+            color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
+        )
+        ax.fill_between(
+            tspan,
+            y2_fill,
+            np.ones(len(tspan)),
+            color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
+        )
+        ax.set_ylim([x_store[0] * 0.8, 1.2 * x_max])
+        plt.axhline(x_max, color="k", linestyle="--")
         plt.ylabel("Installed Customer Base", fontsize=fontsz)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
@@ -337,9 +367,24 @@ class Plotter:
         for i in range(len(MC_store)):
             plt.plot(tspan, MC_store[i], **x_line_opts)
 
+        y1_fill = np.ones(len(tspan)) * 0
+        y2_fill = np.ones(len(tspan)) * x_max
+        ax.fill_between(
+            tspan,
+            y1_fill,
+            y2_fill,
+            color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
+        )
+        ax.fill_between(
+            tspan,
+            y2_fill,
+            np.ones(len(tspan)),
+            color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
+        )
+        ax.set_ylim([MC_store[0][0] * 0.8, 1.2 * x_max])
         plt.axhline(x_max, color="k", linestyle="--")
         plt.ylabel("Installed Customer Base", fontsize=fontsz)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
@@ -352,7 +397,7 @@ if __name__ == "__main__":
     env = Advertising()
     plotter_env = Plotter()
 
-    individual_run = False
+    individual_run = True
     MC_run = True
 
     if individual_run:
@@ -364,6 +409,7 @@ if __name__ == "__main__":
             u_des_store,
             u_store,
             x_max,
+            _,
         ) = env.runSimulation(verbose=True, SCBF_flag=True)
         plotter_env.individualPlot(
             tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
