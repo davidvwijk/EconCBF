@@ -168,6 +168,7 @@ class StochasticCBF:
 
         This version takes into account additional factors to ensure system according to the very recent paper:
         https://arxiv.org/pdf/2312.02430.pdf
+
         """
         M = np.eye(2)
         q = np.array([u, 0])  # Need to append the control with 0 to get 2 dimensions
