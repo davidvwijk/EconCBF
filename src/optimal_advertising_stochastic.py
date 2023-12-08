@@ -12,13 +12,12 @@ Codebase for Control Barrier Functions applied to problems in Finance and Econom
 [describe problem and give textbook] TODO
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.integrate import odeint
-import quadprog
-from scipy.optimize import minimize
 import time
 from alive_progress import alive_bar
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+import quadprog
 import sdeint
 
 
@@ -31,7 +30,7 @@ class StochasticCBF:
         return np.linalg.norm(u - u_des)
 
     def h_x(self, x, x_max):
-        return -(x**2) + (x_max * 0.9) ** 2
+        return -(x**2) + (x_max) ** 2
 
     def barrier_constraint(self, u, x, x_max, delta, r, sigma):
         dhdx = -2 * x
@@ -89,6 +88,41 @@ class StochasticCBF:
             u_act = 0
 
         return u_act, solver_dt
+
+    def asif_QP(self, u, x_curr, u_max, x_max, delta, r, sigma):
+        M = np.eye(2)
+        q = np.array([u, 0])  # Need to append the control with 0 to get 2 dimensions
+
+        # Actuation constraints (0,u_max)
+        G = np.vstack((np.eye(2), -np.eye(2)))
+        h = np.array([0, 0, -u_max, 0])
+
+        dhdx = -2 * x_curr
+        dhdx_sqred = -2
+
+        g_constraint = np.array([dhdx * (r * u * np.sqrt(1 - x_curr)), 0])
+        g_constraint = np.vstack([g_constraint, np.zeros(2)])
+        h_constraint = (
+            (dhdx * delta * x_curr)
+            - (0.5 * (dhdx_sqred * (sigma * x_curr) ** 2))
+            - self.alpha(self.h_x(x_curr, x_max))
+        )
+
+        G = np.vstack([G, g_constraint])
+        h = np.vstack(
+            [h.reshape((-1, 1)), np.array([h_constraint, 0]).reshape((-1, 1))]
+        )
+        d = h.reshape((len(h),))
+
+        tic = time.perf_counter()
+        try:
+            u_act = quadprog.solve_qp(M, q, G.T, d, 0)[0]
+        except:
+            u_act = 0
+        toc = time.perf_counter()
+        solver_dt = toc - tic
+
+        return u_act[0], solver_dt
 
 
 class Advertising(StochasticCBF):
@@ -170,10 +204,15 @@ class Advertising(StochasticCBF):
             t = tspan[i - 1]
             u = self.primaryControl(x_curr, rho, delta, pi, r)
 
+            # Apply Stochastic CBF
             if self.SCBF_flag:
-                # Apply Stochastic CBF
-                u_act, sovler_dt = self.asif_NLP(
-                    u, x_curr, u_max, x_max, delta, r, sigma
+                # NLP and QP Implementation for verification
+
+                # u_act, sovler_dt = self.asif_NLP(
+                #     u, x_curr, u_max, x_max, delta, r, sigma
+                # )
+                u_act, sovler_dt = self.asif_QP(
+                    u[0], x_curr[0], u_max, x_max, delta, r, sigma
                 )
                 solver_times.append(sovler_dt)
                 if abs(u_act - u) > 0.001:
@@ -181,8 +220,8 @@ class Advertising(StochasticCBF):
                 u_des_store[i] = u[0]
                 u = u_act
 
-                args1 = (u, delta, r)
-                args2 = (u, sigma)
+            args1 = (u, delta, r)
+            args2 = (u, sigma)
 
             x_EM_store[i] = self.eulerMaruyamaInt(x_curr, timestep, u, delta, r, sigma)[
                 0
@@ -251,14 +290,14 @@ class Plotter:
         axf = plt.figure(figsize=(10, 7), dpi=100)
         ax = axf.add_subplot(111)
         ax.grid(True)
-        plt.plot(tspan, x_store[0], **x_line_opts)
+        plt.plot(tspan, x_store, **x_line_opts)
         # plt.plot(tspan, x_EM_store[0], **x_line_opts2)
         plt.axhline(x_max, color="k", linestyle="--")
         plt.ylabel("Installed Customer Base", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
-        ax.set_xlim([0, tspan[-1] * 1.004])
+        ax.set_xlim([0, tspan[-1] * 1.003])
 
         plt.tight_layout()
 
@@ -272,7 +311,7 @@ class Plotter:
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
-        ax.set_xlim([0, tspan[-1] * 1.004])
+        ax.set_xlim([0, tspan[-1] * 1.003])
         ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
 
         ax.legend(fontsize=legend_sz, loc="upper right")
@@ -303,7 +342,7 @@ class Plotter:
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
-        ax.set_xlim([0, tspan[-1] * 1.004])
+        ax.set_xlim([0, tspan[-1] * 1.003])
 
         plt.tight_layout()
         plt.show()
@@ -325,7 +364,7 @@ if __name__ == "__main__":
             u_des_store,
             u_store,
             x_max,
-        ) = env.runSimulation(verbose=False, SCBF_flag=True)
+        ) = env.runSimulation(verbose=True, SCBF_flag=True)
         plotter_env.individualPlot(
             tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
         )
