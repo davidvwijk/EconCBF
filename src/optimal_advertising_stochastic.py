@@ -80,6 +80,13 @@ class StochasticCBF:
         """
         return x / 3
 
+    def alpha2(self, x):
+        """
+        Strengthening function. Must be strictly increasing with the property that alpha(x=0) = 0.
+
+        """
+        return 500 * x
+
     def asif_NLP(self, u, x_curr, u_max, x_max, delta, r, sigma):
         """
         Active set invariance filter (ASIF) using nonlinear programming (NLP) for safety assurance.
@@ -131,12 +138,54 @@ class StochasticCBF:
         dhdx = -2 * x_curr
         dhdx_sqred = -2
 
-        g_constraint = np.array([dhdx * (r * u * np.sqrt(1 - x_curr)), 0])
+        g_constraint = np.array([dhdx * (r * np.sqrt(1 - x_curr) * u), 0])
         g_constraint = np.vstack([g_constraint, np.zeros(2)])
         h_constraint = (
             (dhdx * delta * x_curr)
             - (0.5 * (dhdx_sqred * (sigma * x_curr) ** 2))
             - self.alpha(self.h_x(x_curr, x_max))
+        )
+
+        G = np.vstack([G, g_constraint])
+        h = np.vstack(
+            [h.reshape((-1, 1)), np.array([h_constraint, 0]).reshape((-1, 1))]
+        )
+        d = h.reshape((len(h),))
+
+        tic = time.perf_counter()
+        try:
+            u_act = quadprog.solve_qp(M, q, G.T, d, 0)[0]
+        except:
+            u_act = [0]
+        toc = time.perf_counter()
+        solver_dt = toc - tic
+
+        return u_act[0], solver_dt
+
+    def asif_QP2(self, u, x_curr, u_max, x_max, delta, r, sigma):
+        """
+        Active set invariance filter (ASIF) using quadratic programming (QP) for safety assurance.
+
+        This version takes into account additional factors to ensure system according to the very recent paper:
+        https://arxiv.org/pdf/2312.02430.pdf
+        """
+        M = np.eye(2)
+        q = np.array([u, 0])  # Need to append the control with 0 to get 2 dimensions
+
+        # Actuation constraints (0,u_max)
+        G = np.vstack((np.eye(2), -np.eye(2)))
+        h = np.array([0, 0, -u_max, 0])
+
+        dhdx = -2 * x_curr
+        dhdx_sqred = -2
+
+        g_constraint = np.array([dhdx * (r * np.sqrt(1 - x_curr) * u), 0])
+        g_constraint = np.vstack([g_constraint, np.zeros(2)])
+        h_constraint = (
+            (dhdx * delta * x_curr)
+            - (0.5 * (dhdx_sqred * (sigma * x_curr) ** 2))
+            + (((dhdx * (sigma * x_curr)) ** 2) / self.h_x(x_curr, x_max))
+            - (self.h_x(x_curr, x_max) ** 2) * self.alpha2(self.h_x(x_curr, x_max))
         )
 
         G = np.vstack([G, g_constraint])
@@ -257,7 +306,7 @@ class Advertising(StochasticCBF):
                 # u_act, sovler_dt = self.asif_NLP(
                 #     u, x_curr, u_max, x_max, delta, r, sigma
                 # )
-                u_act, sovler_dt = self.asif_QP(
+                u_act, sovler_dt = self.asif_QP2(
                     u[0], x_curr[0], u_max, x_max, delta, r, sigma
                 )
                 solver_times.append(sovler_dt)
@@ -452,7 +501,7 @@ if __name__ == "__main__":
     env = Advertising()
     plotter_env = Plotter()
 
-    individual_run = False
+    individual_run = True
     MC_run = True
 
     if individual_run:
