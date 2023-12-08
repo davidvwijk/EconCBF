@@ -9,7 +9,11 @@ Codebase for Control Barrier Functions applied to problems in Finance and Econom
 
 ---------------------------------------------------------------------------
 
-[describe problem and give textbook] TODO
+Stochastic advertising problem using stochastic control barrier functions and stochastic optimal control.
+
+Problem taken from 13.3, https://personal.utdallas.edu/~sethi/Postscript/OPRE7320_Ch_13.pdf
+First formulated by Sethi, 1983: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=1084250
+
 """
 
 import time
@@ -30,9 +34,17 @@ class StochasticCBF:
         return np.linalg.norm(u - u_des)
 
     def h_x(self, x, x_max):
+        """
+        Control barrier function in use.
+
+        """
         return -(x**2) + (x_max) ** 2
 
     def barrier_constraint(self, u, x, x_max, delta, r, sigma):
+        """
+        Barrier constraint in use.
+
+        """
         dhdx = -2 * x
         dhdx_sqred = -2
         return (
@@ -42,9 +54,17 @@ class StochasticCBF:
         )
 
     def h_x2(self, x, x_max):
+        """
+        Control barrier function (testing different version).
+
+        """
         return (x_max - x) ** 2
 
     def barrier_constraint2(self, u, x, x_max, delta, r, sigma):
+        """
+        Barrier constraint (testing different version).
+
+        """
         dhdx = 2 * (x_max - x)
         dhdx_sqred = -2
         return (
@@ -54,10 +74,17 @@ class StochasticCBF:
         )
 
     def alpha(self, x):
-        return x
+        """
+        Strengthening function. Must be strictly increasing with the property that alpha(x=0) = 0.
+
+        """
+        return x / 3
 
     def asif_NLP(self, u, x_curr, u_max, x_max, delta, r, sigma):
-        # Check if control is safe
+        """
+        Active set invariance filter (ASIF) using nonlinear programming (NLP) for safety assurance.
+
+        """
         constraint = [
             {
                 "type": "ineq",
@@ -90,6 +117,10 @@ class StochasticCBF:
         return u_act, solver_dt
 
     def asif_QP(self, u, x_curr, u_max, x_max, delta, r, sigma):
+        """
+        Active set invariance filter (ASIF) using quadratic programming (QP) for safety assurance.
+
+        """
         M = np.eye(2)
         q = np.array([u, 0])  # Need to append the control with 0 to get 2 dimensions
 
@@ -136,7 +167,10 @@ class Advertising(StochasticCBF):
         return u
 
     def eulerMaruyamaInt(self, x_tkm, del_t, u, delta, r, sigma):
-        # Discrete integration via Euler–Maruyama method
+        """
+        Discrete stochastic integration via Euler-Maruyama method.
+
+        """
         x_tk = (
             x_tkm
             + self.f_fun(x_tkm, 0, u, delta, r) * del_t
@@ -146,12 +180,24 @@ class Advertising(StochasticCBF):
         return x_tk
 
     def f_fun(self, x, t, u, delta, r):
+        """
+        Deterministic portion of dynamics.
+
+        """
         return r * u * np.sqrt(1 - x) - delta * x
 
     def g_fun(self, x, t, u, sigma):
+        """
+        Brownian motion portion of dynamics.
+
+        """
         return x * sigma
 
     def runSimulation(self, verbose=True, SCBF_flag=True):
+        """
+        Full simulation run.
+
+        """
         self.verbose = verbose
         self.SCBF_flag = SCBF_flag
 
@@ -206,7 +252,7 @@ class Advertising(StochasticCBF):
 
             # Apply Stochastic CBF
             if self.SCBF_flag:
-                # NLP and QP Implementation for verification
+                # NLP and QP Implementation for verification [use QP only now]
 
                 # u_act, sovler_dt = self.asif_NLP(
                 #     u, x_curr, u_max, x_max, delta, r, sigma
@@ -259,6 +305,10 @@ class Advertising(StochasticCBF):
         )
 
     def runMC(self, numMCPts, SCBF_flag):
+        """
+        Run a monte carlo simulation with the number of samples: numMCPts
+
+        """
         MC_store = []
         # avg_MC_solver_t =
         # max_MC_solver_t =
@@ -281,6 +331,11 @@ class Advertising(StochasticCBF):
 
 
 class Plotter:
+    """
+    Plotting class containing plotting methods.
+
+    """
+
     def individualPlot(
         self, tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
     ):
@@ -397,7 +452,7 @@ if __name__ == "__main__":
     env = Advertising()
     plotter_env = Plotter()
 
-    individual_run = True
+    individual_run = False
     MC_run = True
 
     if individual_run:

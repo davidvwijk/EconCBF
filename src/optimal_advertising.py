@@ -25,9 +25,17 @@ import time
 
 class OptimalAdvertising:
     def barrier_constraint(self, x, x_max, u, b):
+        """
+        Barrier constraint, restricting allowable control.
+
+        """
         return 2 * b * x**2 - 2 * x * (1 - x) * u + self.alpha(self.h_x(x, x_max))
 
     def asif_QP(self, x, x_max, u_des, b, u_max):
+        """
+        Active set invariance filter (ASIF) using quadratic programming (QP) for safety assurance.
+
+        """
         M = np.eye(2)
         q = np.array(
             [u_des, 0]
@@ -58,18 +66,32 @@ class OptimalAdvertising:
         return u_act[0], solver_dt
 
     def alpha(self, x):
+        """
+        Strengthening function. Must be strictly increasing with the property that alpha(x=0) = 0.
+
+        """
         return 10 * x
 
     def h_x(self, x, x_max):
+        """
+        Control barrier function.
+
+        """
         return -(x**2) + x_max**2
 
     def primaryControl(self, x, v, t, k, r, u_max):
-        # Optimal control solution
+        """
+        Optimal control solution.
+
+        """
         u = ((k * v * (1 - x)) / (np.exp(-r * t))) ** (k / (1 - k))
         return min(u, u_max)
 
     def propFun(self, x_full, t, u, r, g, b):
-        # Propagate the dynamics and the costate
+        """
+        Propagate the dynamics and costate.
+
+        """
         x, v = x_full
         dx = np.zeros_like(x_full)
         dx[0] = (1 - x) * u - b * x
@@ -77,7 +99,10 @@ class OptimalAdvertising:
         return dx
 
     def runSimulation(self):
-        # Constants
+        """
+        Full simulation run.
+
+        """
         k = 0.5
         r = 0.001
         b = 0.1
@@ -138,6 +163,11 @@ class OptimalAdvertising:
 
 
 class Plotter:
+    """
+    Plotting class containing plotting methods.
+
+    """
+
     def subPlots(self, tspan, x_store, numPts, x_max, u_des_store, u_store):
         # Plotting
         fontsz = 24
