@@ -28,10 +28,9 @@ class StochasticCBF:
 
         """
         return np.linalg.norm(u - u_des)
-        # return u
 
     def h_x(self, x, x_min):
-        return (x**2) - x_min**2
+        return (x) ** 2 - (x_min) ** 2
 
     def barrier_constraint(self, u, x, x_min, mu, r, sigma):
         return (
