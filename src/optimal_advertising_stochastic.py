@@ -118,7 +118,7 @@ class StochasticCBF:
         try:
             u_act = quadprog.solve_qp(M, q, G.T, d, 0)[0]
         except:
-            u_act = 0
+            u_act = [0]
         toc = time.perf_counter()
         solver_dt = toc - tic
 
