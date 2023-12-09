@@ -503,7 +503,7 @@ if __name__ == "__main__":
     plotter_env = Plotter()
 
     individual_run = True
-    MC_run, numMCpts = True, 1000
+    MC_run, numMCpts = True, 100
 
     if individual_run:
         (
