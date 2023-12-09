@@ -428,7 +428,7 @@ class Plotter:
         )
         ax.set_ylim([x_store[0] * 0.8, 1.2 * x_max])
         plt.axhline(x_max, color="k", linestyle="--")
-        plt.ylabel("Installed Customer Base", fontsize=fontsz)
+        plt.ylabel("Market Share", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -442,7 +442,7 @@ class Plotter:
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("Advertising Activity", fontsize=fontsz)
+        plt.ylabel("Rate of Advertising", fontsize=fontsz)
         plt.xlabel("Time", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -488,7 +488,7 @@ class Plotter:
         )
         ax.set_ylim([MC_store[0][0] * 0.8, 1.2 * x_max])
         plt.axhline(x_max, color="k", linestyle="--")
-        plt.ylabel("Installed Customer Base", fontsize=fontsz)
+        plt.ylabel("Market Share", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     plotter_env = Plotter()
 
     individual_run = True
-    MC_run = True
+    MC_run, numMCpts = True, 1000
 
     if individual_run:
         (
@@ -520,5 +520,5 @@ if __name__ == "__main__":
             tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
         )
     if MC_run:
-        MC_store, tspan, x_max = env.runMC(100, SCBF_flag=True)
+        MC_store, tspan, x_max = env.runMC(numMCpts, SCBF_flag=True)
         plotter_env.MCplot(MC_store, tspan, x_max)
