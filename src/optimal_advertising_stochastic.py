@@ -262,7 +262,7 @@ class Advertising(StochasticCBF):
         u_max = 10
 
         self.seed = np.random.randint(0, 99999)
-        # self.seed = 7267  # Reproducibility
+        # self.seed = 1111  # Reproducibility
         self.rng = np.random.default_rng(self.seed)
 
         # State constraint
