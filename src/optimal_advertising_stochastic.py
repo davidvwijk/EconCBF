@@ -171,7 +171,9 @@ class StochasticCBF:
 
         """
         M = np.eye(2)
-        q = np.array([u, 0])  # Need to append the control with 0 to get 2 dimensions
+        q = np.array(
+            [u, 0]
+        )  # Need to append the control with 0 to get 2 dimensions for quadprog
 
         # Actuation constraints (0,u_max)
         G = np.vstack((np.eye(2), -np.eye(2)))
