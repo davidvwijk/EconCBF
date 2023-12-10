@@ -111,10 +111,10 @@ class OptimalAdvertising:
         u_max = 12
 
         # State constraint (0,1)
-        x_max = 0.8
+        x_max = 0.6
 
         # Data statistics
-        numPts = 400
+        numPts = 250
         timestep = 0.01
         tspan = np.arange(0, numPts * timestep, timestep)
 
@@ -191,7 +191,7 @@ class Plotter:
         plt.plot(tspan, x_store[0], **x_line_opts)
         plt.axhline(x_max, color="k", linestyle="--")
         plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 3)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         ax.set_xlim([0, tspan[-1]])
         ax.set_ylim([0, 1])
         y1_fill = np.ones(numPts) * 0
@@ -215,7 +215,7 @@ class Plotter:
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
         plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 3)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         ax.set_xlim([0, tspan[-1]])
 
         ax.legend(fontsize=legend_sz, loc="upper left")
@@ -245,8 +245,8 @@ class Plotter:
         plt.plot(tspan, x_store[0], **x_line_opts)
         plt.axhline(x_max, color="k", linestyle="--")
         # plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
-        plt.ylabel("Installed Customer Base", fontsize=fontsz)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.ylabel("Market Share", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1]])
@@ -275,7 +275,7 @@ class Plotter:
         plt.plot(tspan, u_store, **u_line_opts)
         # plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
         plt.ylabel("Advertising Activity", fontsize=fontsz)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1]])

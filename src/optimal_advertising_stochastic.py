@@ -278,7 +278,7 @@ class Advertising(StochasticCBF):
         u_des_store = np.zeros(numPts)
 
         # Initial conditions
-        x_0 = np.array([0.1])  # x
+        x_0 = np.array([0.02])  # x
         x_curr = x_0
 
         # Storing values
@@ -288,6 +288,7 @@ class Advertising(StochasticCBF):
         u_des_store[0] = 0
         solver_times = []
         intervened = [False] * numPts
+        violation_count = 0
 
         def close(func, *args):
             def newfunc(x, t):
@@ -296,6 +297,10 @@ class Advertising(StochasticCBF):
             return newfunc
 
         for i in range(1, numPts):
+            # Keep track of any constraint violations
+            if x_curr > x_max:
+                violation_count += 1
+
             # Generate control desired
             t = tspan[i - 1]
             u = self.primaryControl(x_curr, rho, delta, pi, r)
@@ -342,6 +347,9 @@ class Advertising(StochasticCBF):
             print("Seed:", self.seed)
             print(f"Average solver time: {avg_solver_t:0.4f} ms")
             print(f"Maximum single solver time: {max_solver_t:0.4f} ms")
+            print(
+                f"Single trial Pr(success): {(1-(violation_count/numPts)) * 100:0.2f}% \n"
+            )
 
         return (
             tspan,
@@ -352,6 +360,7 @@ class Advertising(StochasticCBF):
             u_store,
             x_max,
             [avg_solver_t, max_solver_t],
+            violation_count,
         )
 
     def runMC(self, numMCPts, SCBF_flag):
@@ -360,24 +369,27 @@ class Advertising(StochasticCBF):
 
         """
         MC_store = []
-        # avg_MC_solver_t =
-        # max_MC_solver_t =
+        MC_violations_count = 0
         with alive_bar(numMCPts) as bar:
             for _ in range(numMCPts):
                 (
                     tspan,
                     x_store,
                     _,
-                    _,
+                    numPts,
                     _,
                     _,
                     x_max,
-                    solver_t_array,
+                    _,
+                    violations,
                 ) = self.runSimulation(verbose=False, SCBF_flag=SCBF_flag)
                 MC_store.append(x_store)
+                MC_violations_count += violations
                 bar()
 
-        return MC_store, tspan, x_max
+        MC_prob_success = (1 - (MC_violations_count / (numPts * numMCpts))) * 100
+
+        return MC_store, tspan, x_max, MC_prob_success
 
 
 class Plotter:
@@ -443,7 +455,7 @@ class Plotter:
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
         plt.ylabel("Rate of Advertising", fontsize=fontsz)
-        plt.xlabel("Time", fontsize=fontsz)
+        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
@@ -503,9 +515,10 @@ if __name__ == "__main__":
     plotter_env = Plotter()
 
     individual_run = True
-    MC_run, numMCpts = True, 100
+    MC_run, numMCpts = True, 1000
 
     if individual_run:
+        print("Running single trial for stochastic optimal advertising solution")
         (
             tspan,
             x_store,
@@ -515,10 +528,15 @@ if __name__ == "__main__":
             u_store,
             x_max,
             _,
+            _,
         ) = env.runSimulation(verbose=True, SCBF_flag=True)
         plotter_env.individualPlot(
             tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
         )
     if MC_run:
-        MC_store, tspan, x_max = env.runMC(numMCpts, SCBF_flag=True)
+        print(
+            f"Running Monte Carlo simulation for stochastic optimal advertising solution with {numMCpts} samples"
+        )
+        MC_store, tspan, x_max, MC_prob_success = env.runMC(numMCpts, SCBF_flag=True)
         plotter_env.MCplot(MC_store, tspan, x_max)
+        print(f"Monte Carlo Pr(success) = {MC_prob_success:0.3f}%")
