@@ -65,8 +65,9 @@ class StochasticCBF:
         constraints = tuple(constraint)
         bnds = ((0.0, u_max),)
 
-        u_0 = u / 3
+        # u_0 = u / 3
         # u_0 = 0
+        u_0 = u
         tic = time.perf_counter()
         result = minimize(
             self.obj_fun,
@@ -81,9 +82,9 @@ class StochasticCBF:
         solver_dt = toc - tic
 
         u_act = result.x[0]
-        if not result.success:
+        if not result.success and self.verbose:
             print("Fail, x_curr:", x_curr)
-            # u_act = u_act / 3
+            u_act = 0
 
         return u_act, solver_dt
 
@@ -121,7 +122,7 @@ class PortfolioOptimization(StochasticCBF):
         self.verbose = verbose
         # Constants
         r = 0.02
-        mu = 0.07
+        mu = 0.11
         sigma = 0.15
         g = 0.01
         l = (mu - r) / sigma
@@ -130,13 +131,14 @@ class PortfolioOptimization(StochasticCBF):
         # self.seed = 2222  # Reproducibility
         self.rng = np.random.default_rng(self.seed)
 
-        # State constraint
-        x_min = 480
-
         # Data statistics
         numPts = 400
         timestep = 0.1
         tspan = np.arange(0, numPts * timestep, timestep)
+
+        # State constraint
+        x_min = 500
+        withdrawal_idx = 150
 
         # Tracking variables
         x_store = np.zeros(numPts)
@@ -145,7 +147,7 @@ class PortfolioOptimization(StochasticCBF):
         u_des_store = np.zeros(numPts)
 
         # Initial conditions
-        x_0 = np.array([500])  # x
+        x_0 = np.array([520])  # x
         x_curr = x_0
 
         # Storing values
@@ -172,8 +174,8 @@ class PortfolioOptimization(StochasticCBF):
             t = tspan[i - 1]
             u = self.primaryControl(l, g, sigma, r, max(tspan), t)
 
-            if i == 50:
-                x_curr[0] = x_min + 5
+            if i == withdrawal_idx:
+                x_curr[0] = x_min * 1.05
 
             # Apply Stochastic CBF using NLP
             u_max = x_curr
@@ -280,12 +282,26 @@ class Plotter:
         plt.plot(tspan, x_store, **x_line_opts)
         # plt.plot(tspan, x_EM_store, **x_line_opts2)
         plt.axhline(x_min, color="k", linestyle="--")
-        # plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
-        plt.ylabel("Total Wealth (\$)", fontsize=fontsz)
+        plt.ylabel("Total Wealth (K USD)", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.004])
+        y1_fill = np.ones(len(tspan)) * 0
+        y2_fill = np.ones(len(tspan)) * x_min
+        ax.fill_between(
+            tspan,
+            y1_fill,
+            y2_fill,
+            color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
+        )
+        ax.fill_between(
+            tspan,
+            y2_fill,
+            2 * max(x_store) * np.ones(len(tspan)),
+            color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
+        )
+        ax.set_ylim([0, 1.05 * max(x_store)])
 
         plt.tight_layout()
 
@@ -295,15 +311,14 @@ class Plotter:
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        # plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
-        plt.ylabel("Wealth in Risky Asset (\$)", fontsize=fontsz)
+        plt.ylabel("Wealth in Risky Asset (K USD)", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.004])
         ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
 
-        ax.legend(fontsize=legend_sz, loc="upper right")
+        ax.legend(fontsize=legend_sz, loc="upper left")
         plt.tight_layout()
         plt.show()
 
@@ -323,8 +338,11 @@ class Plotter:
         axf = plt.figure(figsize=(10, 7), dpi=100)
         ax = axf.add_subplot(111)
         ax.grid(True)
+        global_max = 0
         for i in range(len(MC_store)):
             plt.plot(tspan, MC_store[i], **x_line_opts)
+            if max(MC_store[i]) > global_max:
+                global_max = max(MC_store[i])
 
         y1_fill = np.ones(len(tspan)) * 0
         y2_fill = np.ones(len(tspan)) * x_min
@@ -332,17 +350,17 @@ class Plotter:
             tspan,
             y1_fill,
             y2_fill,
-            color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
+            color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
         )
         ax.fill_between(
             tspan,
             y2_fill,
-            np.ones(len(tspan)),
-            color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
+            2 * global_max * np.ones(len(tspan)),
+            color=(244 / 255, 249 / 255, 241 / 255),  # Green, safe set
         )
-        # ax.set_ylim([MC_store[0][0] * 0.8, 1.2 * x_min])
+        ax.set_ylim([0, 1.05 * global_max])
         plt.axhline(x_min, color="k", linestyle="--")
-        plt.ylabel("Wealth in Risky Asset (\$)", fontsize=fontsz)
+        plt.ylabel("Total Wealth (K USD)", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -357,7 +375,7 @@ if __name__ == "__main__":
     plotter_env = Plotter()
 
     individual_run = True
-    MC_run, numMCpts = True, 10
+    MC_run, numMCpts = True, 1000
     if individual_run:
         print("Running single trial for stochastic portfolio optimization")
         (
