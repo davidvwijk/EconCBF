@@ -95,7 +95,7 @@ class PortfolioOptimization(StochasticCBF):
         Optimal control solution.
 
         """
-        u = l / (g * sigma) * np.exp(-r * (T - t))
+        u = (l / (g * sigma)) * np.exp(-r * (T - t))
         return u
 
     def eulerMaruyamaInt(self, x_tkm, del_t, u, mu, r, sigma):
@@ -282,7 +282,7 @@ class Plotter:
         plt.plot(tspan, x_store, **x_line_opts)
         # plt.plot(tspan, x_EM_store, **x_line_opts2)
         plt.axhline(x_min, color="k", linestyle="--")
-        plt.ylabel("Total Wealth (K USD)", fontsize=fontsz)
+        plt.ylabel("Total Wealth (USD)", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -311,7 +311,7 @@ class Plotter:
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("Wealth in Risky Asset (K USD)", fontsize=fontsz)
+        plt.ylabel("Wealth in Risky Asset (USD)", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
@@ -360,7 +360,7 @@ class Plotter:
         )
         ax.set_ylim([0, 1.05 * global_max])
         plt.axhline(x_min, color="k", linestyle="--")
-        plt.ylabel("Total Wealth (K USD)", fontsize=fontsz)
+        plt.ylabel("Total Wealth (USD)", fontsize=fontsz)
         plt.xlabel("Time (arbitrary)", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
