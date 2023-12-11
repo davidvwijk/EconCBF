@@ -8,10 +8,10 @@ _Abstract_ - Control barrier functions (CBFs) and safety-critical control have s
 2) Run any of the examples by calling python _example_.py where _example_ is the name of the script
 
 _Optimal Advertising (deterministic)_
-(describe problem)
+-(describe problem)
 
 _Optimal Advertising (stochastic)_
-(describe problem)
+-(describe problem)
 
 _Merton's Portfiolio Optimization_
-(describe problem)
+-(describe problem)
