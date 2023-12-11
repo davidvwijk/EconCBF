@@ -2,3 +2,6 @@
 Optimal Control Theory and Control Barrier Functions applied to Economics and Finance
 
 _Abstract_ - Control barrier functions (CBFs) and safety-critical control have seen a rapid increase in popularity in recent years, predominantly applied to systems in aerospace, robotics and neural network controllers. Control barrier functions can provide a computationally efficient method to monitor arbitrary primary controllers and enforce state constraints to ensure overall system safety. One area that has yet to take advantage of the benefits offered by CBFs is the field of finance and economics. This manuscript re-introduces three applications of traditional control to economics, and develops and implements CBFs for such problems. We consider the problem of optimal advertising for the deterministic and stochastic case and Merton's portfolio optimization problem. Numerical simulations are used to demonstrate the effectiveness of using traditional control solutions in tandem with CBFs and stochastic CBFs to solve such problems in the presence of state constraints.
+
+**To Run the Code**
+
