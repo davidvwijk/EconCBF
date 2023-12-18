@@ -126,7 +126,7 @@ class PortfolioOptimization(StochasticCBF):
         l = (mu - r) / sigma
 
         self.seed = np.random.randint(0, 99999)
-        # self.seed = 61520  # Reproducibility 32134
+        # self.seed = 32134  # Reproducibility 32134, 61520
         self.rng = np.random.default_rng(self.seed)
 
         # Data statistics
@@ -266,6 +266,7 @@ class Plotter:
         u_store,
         x_min,
         withdrawal_idx,
+        save_plots,
     ):
         # Plotting
         fontsz = 24
@@ -274,7 +275,12 @@ class Plotter:
         x_line_opts = {"linewidth": 3, "color": "b"}
         x_line_opts2 = {"linewidth": 3, "color": "pink"}
         u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
-        udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
+        udes_line_opts = {
+            "linewidth": 3,
+            "linestyle": "--",
+            "color": "r",
+            "label": "$\mathbf{u}^{*}$",
+        }
 
         plt.rcParams.update(
             {
@@ -284,14 +290,14 @@ class Plotter:
         )
 
         # State plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, x_store, **x_line_opts, zorder=5)
         # plt.plot(tspan, x_EM_store, **x_line_opts2)
         plt.axhline(x_min, color="k", linestyle="--")
-        plt.ylabel("Total Wealth (Thousand USD)", fontsize=fontsz)
-        plt.xlabel("Time (years)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Total Wealth (Thousand USD)}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (years)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.004])
@@ -324,27 +330,29 @@ class Plotter:
             zorder=10,
         )
         ax.legend(fontsize=legend_sz, loc="upper left")
-
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/po/po_x", dpi=2000)
 
         # Control plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("Wealth in Risky Asset (Thousand USD)", fontsize=fontsz)
-        plt.xlabel("Time (years)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Wealth in Risky Asset (Thousand USD)}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (years)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.004])
         ax.set_ylim([0, 1.1 * max(max(u_store), max(u_des_store))])
-
         ax.legend(fontsize=legend_sz, loc="upper left")
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/po/po_u", dpi=2000)
         plt.show()
 
-    def MCplot(self, MC_store, tspan, x_min, withdrawal_idx):
+    def MCplot(self, MC_store, tspan, x_min, withdrawal_idx, save_plots):
         fontsz = 24
         ticks_sz = 20
         x_line_opts = {"linewidth": 1.5}
@@ -357,7 +365,7 @@ class Plotter:
         )
 
         # State plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         global_max = 0
@@ -393,14 +401,15 @@ class Plotter:
         ax.set_ylim([0, 1.05 * global_max])
         plt.axhline(x_min, color="k", linestyle="--")
         # plt.ylabel(r"Total Wealth ($\times 10^{3}$ USD)", fontsize=fontsz)
-        plt.ylabel("Total Wealth (Thousand USD)", fontsize=fontsz)
-        plt.xlabel("Time (years)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Total Wealth (Thousand USD)}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (years)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
         # ax.legend(fontsize=24, loc="upper left")
-
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/po/po_mc", dpi=2000)
         plt.show()
 
 
@@ -409,8 +418,8 @@ if __name__ == "__main__":
     plotter_env = Plotter()
 
     individual_run = True
-    MC_run, numMCpts = False, 1000
-    # MC_run, numMCpts = True, 10
+    MC_run, numMCpts = True, 1000
+    save_plots = False
 
     if individual_run:
         print("Running single trial for stochastic portfolio optimization")
@@ -435,11 +444,14 @@ if __name__ == "__main__":
             u_store,
             x_min,
             withdrawal_idx,
+            save_plots=save_plots,
         )
     if MC_run:
         print(
             f"Running Monte Carlo simulation for stochastic portfolio optimization with {numMCpts} samples"
         )
         MC_store, tspan, x_min, MC_prob_success, withdrawal_idx = env.runMC(numMCpts)
-        plotter_env.MCplot(MC_store, tspan, x_min, withdrawal_idx)
+        plotter_env.MCplot(
+            MC_store, tspan, x_min, withdrawal_idx, save_plots=save_plots
+        )
         print(f"Monte Carlo Pr(success) = {MC_prob_success:0.3f}%")

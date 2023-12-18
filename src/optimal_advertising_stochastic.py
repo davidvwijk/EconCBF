@@ -123,6 +123,42 @@ class StochasticCBF:
 
         return u_act, solver_dt
 
+    def asif_QP_CBF(self, u, x_curr, u_max, x_max, delta, r):
+        """
+        Active set invariance filter (ASIF) using quadratic programming (QP) for safety assurance.
+
+        USES A STANDARD CBF -- FOR COMPARISON WITH SCBF
+
+        """
+        M = np.eye(2)
+        q = np.array([u, 0])  # Need to append the control with 0 to get 2 dimensions
+
+        # Actuation constraints (0,u_max)
+        G = np.vstack((np.eye(2), -np.eye(2)))
+        h = np.array([0, 0, -u_max, 0])
+
+        dhdx = -2 * x_curr
+
+        g_constraint = np.array([dhdx * (r * np.sqrt(1 - x_curr) * u), 0])
+        g_constraint = np.vstack([g_constraint, np.zeros(2)])
+        h_constraint = (dhdx * delta * x_curr) - self.alpha(self.h_x(x_curr, x_max))
+
+        G = np.vstack([G, g_constraint])
+        h = np.vstack(
+            [h.reshape((-1, 1)), np.array([h_constraint, 0]).reshape((-1, 1))]
+        )
+        d = h.reshape((len(h),))
+
+        tic = time.perf_counter()
+        try:
+            u_act = quadprog.solve_qp(M, q, G.T, d, 0)[0]
+        except:
+            u_act = [0]
+        toc = time.perf_counter()
+        solver_dt = toc - tic
+
+        return u_act[0], solver_dt
+
     def asif_QP(self, u, x_curr, u_max, x_max, delta, r, sigma):
         """
         Active set invariance filter (ASIF) using quadratic programming (QP) for safety assurance.
@@ -317,6 +353,9 @@ class Advertising(StochasticCBF):
                 u_act, sovler_dt = self.asif_QP2(
                     u[0], x_curr[0], u_max, x_max, delta, r, sigma
                 )
+                # u_act, sovler_dt = self.asif_QP_CBF(
+                #     u[0], x_curr[0], u_max, x_max, delta, r
+                # )
                 solver_times.append(sovler_dt)
                 if abs(u_act - u) > 0.001:
                     intervened[i] = True
@@ -401,7 +440,15 @@ class Plotter:
     """
 
     def individualPlot(
-        self, tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
+        self,
+        tspan,
+        x_store,
+        x_EM_store,
+        numPts,
+        u_des_store,
+        u_store,
+        x_max,
+        save_plots,
     ):
         # Plotting
         fontsz = 24
@@ -410,7 +457,12 @@ class Plotter:
         x_line_opts = {"linewidth": 3, "color": "b"}
         x_line_opts2 = {"linewidth": 3, "color": "pink"}
         u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
-        udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
+        udes_line_opts = {
+            "linewidth": 3,
+            "linestyle": "--",
+            "color": "r",
+            "label": "$\mathbf{u}^{*}$",
+        }
 
         plt.rcParams.update(
             {
@@ -420,7 +472,7 @@ class Plotter:
         )
 
         # State plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, x_store, **x_line_opts)
@@ -442,22 +494,23 @@ class Plotter:
         )
         ax.set_ylim([x_store[0] * 0.8, 1.2 * x_max])
         plt.axhline(x_max, color="k", linestyle="--")
-        plt.ylabel("Market Share", fontsize=fontsz)
-        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Market Share}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (arbitrary)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
-
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/soa/soa_x", dpi=2000)
 
         # Control plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
-        plt.ylabel("Rate of Advertising", fontsize=fontsz)
-        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Rate of Advertising}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (arbitrary)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
@@ -465,9 +518,11 @@ class Plotter:
 
         ax.legend(fontsize=legend_sz, loc="upper right")
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/soa/soa_u", dpi=2000)
         plt.show()
 
-    def MCplot(self, MC_store, tspan, x_max):
+    def MCplot(self, MC_store, tspan, x_max, save_plots):
         fontsz = 24
         ticks_sz = 20
         x_line_opts = {"linewidth": 1.5}
@@ -480,7 +535,7 @@ class Plotter:
         )
 
         # State plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         for i in range(len(MC_store)):
@@ -502,13 +557,14 @@ class Plotter:
         )
         ax.set_ylim([MC_store[0][0] * 0.8, 1.2 * x_max])
         plt.axhline(x_max, color="k", linestyle="--")
-        plt.ylabel("Market Share", fontsize=fontsz)
-        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Market Share}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (arbitrary)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1] * 1.003])
-
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/soa/soa_mc", dpi=2000)
         plt.show()
 
 
@@ -518,6 +574,7 @@ if __name__ == "__main__":
 
     individual_run = True
     MC_run, numMCpts = True, 1000
+    save_plots = False
 
     if individual_run:
         print("Running single trial for stochastic optimal advertising solution")
@@ -533,12 +590,12 @@ if __name__ == "__main__":
             _,
         ) = env.runSimulation(verbose=True, SCBF_flag=True)
         plotter_env.individualPlot(
-            tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max
+            tspan, x_store, x_EM_store, numPts, u_des_store, u_store, x_max, save_plots
         )
     if MC_run:
         print(
             f"Running Monte Carlo simulation for stochastic optimal advertising solution with {numMCpts} samples"
         )
         MC_store, tspan, x_max, MC_prob_success = env.runMC(numMCpts, SCBF_flag=True)
-        plotter_env.MCplot(MC_store, tspan, x_max)
+        plotter_env.MCplot(MC_store, tspan, x_max, save_plots)
         print(f"Monte Carlo Pr(success) = {MC_prob_success:0.3f}%")

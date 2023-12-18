@@ -174,7 +174,12 @@ class Plotter:
         legend_sz = 24
         x_line_opts = {"linewidth": 3, "color": "b"}
         u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
-        udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
+        udes_line_opts = {
+            "linewidth": 3,
+            "linestyle": "--",
+            "color": "r",
+            "label": "$\mathbf{u}^{*}$",
+        }
 
         plt.rcParams.update(
             {
@@ -222,14 +227,21 @@ class Plotter:
         plt.tight_layout()
         plt.show()
 
-    def individualPlot(self, tspan, x_store, numPts, x_max, u_des_store, u_store):
+    def individualPlot(
+        self, tspan, x_store, numPts, x_max, u_des_store, u_store, save_plots
+    ):
         # Plotting
         fontsz = 24
         legend_sz = 24
         ticks_sz = 20
         x_line_opts = {"linewidth": 3, "color": "b"}
         u_line_opts = {"linewidth": 3, "color": "g", "label": "$\mathbf{u}_{\\rm act}$"}
-        udes_line_opts = {"linewidth": 3, "color": "r", "label": "$\mathbf{u}^{*}$"}
+        udes_line_opts = {
+            "linewidth": 3,
+            "linestyle": "--",
+            "color": "r",
+            "label": "$\mathbf{u}^{*}$",
+        }
 
         plt.rcParams.update(
             {
@@ -239,14 +251,14 @@ class Plotter:
         )
 
         # State plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, x_store[0], **x_line_opts)
         plt.axhline(x_max, color="k", linestyle="--")
         # plt.ylabel("$\mathbf{x}$", fontsize=fontsz + 4)
-        plt.ylabel("Market Share", fontsize=fontsz)
-        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Market Share}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (arbitrary)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1]])
@@ -266,16 +278,18 @@ class Plotter:
             color=(255 / 255, 239 / 255, 239 / 255),  # Red, unsafe set
         )
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/oa/oa_x", dpi=2000)
 
         # Control plot
-        axf = plt.figure(figsize=(10, 7), dpi=100)
+        axf = plt.figure(figsize=(10, 7))
         ax = axf.add_subplot(111)
         ax.grid(True)
         plt.plot(tspan, u_des_store, **udes_line_opts)
         plt.plot(tspan, u_store, **u_line_opts)
         # plt.ylabel("$\mathbf{u}$", fontsize=fontsz + 4)
-        plt.ylabel("Advertising Activity", fontsize=fontsz)
-        plt.xlabel("Time (arbitrary)", fontsize=fontsz)
+        plt.ylabel(r"\textbf{Advertising Activity}", fontsize=fontsz)
+        plt.xlabel(r"\textbf{Time (arbitrary)}", fontsize=fontsz)
         plt.xticks(fontsize=ticks_sz)
         plt.yticks(fontsize=ticks_sz)
         ax.set_xlim([0, tspan[-1]])
@@ -283,11 +297,14 @@ class Plotter:
 
         ax.legend(fontsize=legend_sz, loc="upper left")
         plt.tight_layout()
+        if save_plots:
+            plt.savefig("plots/oa/oa_u", dpi=2000)
         plt.show()
 
 
 if __name__ == "__main__":
     env = OptimalAdvertising()
+    save_plots = False
     (
         tspan,
         x_store,
@@ -297,5 +314,7 @@ if __name__ == "__main__":
         u_store,
     ) = env.runSimulation()
     plotter_env = Plotter()
-    plotter_env.individualPlot(tspan, x_store, numPts, x_max, u_des_store, u_store)
+    plotter_env.individualPlot(
+        tspan, x_store, numPts, x_max, u_des_store, u_store, save_plots=save_plots
+    )
     # plotter_env.subPlots(tspan, x_store, numPts, x_max, u_des_store, u_store)
