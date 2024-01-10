@@ -7,7 +7,7 @@ _Abstract_ - Control barrier functions (CBFs) and safety-critical control have s
 1) Install the necessary packages using pip install -r requirements.txt
 2) Run any of the examples by calling python _example_.py where _example_ is the name of the script
 
-For more details on each problem, see [Econ_CBFs_vanWijk.pdf](/Econ_CBFs_vanWijk.pdf)
+For more details on each problem, see the arXiv [paper.](https://arxiv.org/abs/2312.12612)
 
 _Optimal Advertising (deterministic)_
 
