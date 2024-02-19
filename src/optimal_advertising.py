@@ -279,7 +279,7 @@ class Plotter:
         )
         plt.tight_layout()
         if save_plots:
-            plt.savefig("plots/oa/oa_x", dpi=2000)
+            plt.savefig("plots/oa/oa_x", dpi=1000)
 
         # Control plot
         axf = plt.figure(figsize=(10, 7))
@@ -298,13 +298,13 @@ class Plotter:
         ax.legend(fontsize=legend_sz, loc="upper left")
         plt.tight_layout()
         if save_plots:
-            plt.savefig("plots/oa/oa_u", dpi=2000)
+            plt.savefig("plots/oa/oa_u", dpi=1000)
         plt.show()
 
 
 if __name__ == "__main__":
     env = OptimalAdvertising()
-    save_plots = False
+    save_plots = True
     (
         tspan,
         x_store,
